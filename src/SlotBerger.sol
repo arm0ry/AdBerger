@@ -47,13 +47,13 @@ contract SlotBerger {
     address public dao;
 
     /// @dev Percentage of patronage.
-    uint40 public immutable tax;
+    uint40 public tax;
 
     /// @dev Bidding cycle.
-    uint40 public immutable cycle;
+    uint40 public cycle;
 
     /// @dev Minimum increase per use.
-    uint40 public immutable minimum;
+    uint40 public minimum;
 
     /// @dev Id for slot.
     uint256 public slotId;
@@ -88,7 +88,7 @@ contract SlotBerger {
     /* -------------------------------------------------------------------------- */
 
     /// @dev Use a slot.
-    function use(
+    function commit(
         uint256 id,
         string calldata content,
         address currency,
@@ -99,8 +99,8 @@ contract SlotBerger {
             // Check approved `currency`.
             if (accepted[currency]) revert InvalidCurrency();
 
-            // Must deposit `newPrice` to cover full tax amount.
-            if (newPrice != msg.value) revert InvalidNewPrice();
+            // Must deposit full tax amount.
+            if ((newPrice * tax) / 10000 != msg.value) revert InvalidNewPrice();
 
             unchecked {
                 ++slotId;
@@ -116,12 +116,16 @@ contract SlotBerger {
             }
 
             // Check `currentPrice` and `newPrice` conditions.
-            if (currentPrice != $.price && msg.value > currentPrice) {
+            if (currentPrice != $.price) {
                 revert InvalidCurrentPrice();
             }
             if (newPrice < currentPrice + (currentPrice * minimum) / 10000) {
                 revert InvalidNewPrice();
             }
+
+            // Must deposit full tax amount.
+            if ((newPrice * tax) / 10000 != msg.value - currentPrice)
+                revert InvalidNewPrice();
 
             // Check `currency`.
             if ($.currency != currency) revert InvalidCurrency();
@@ -216,6 +220,16 @@ contract SlotBerger {
 
     function setDao(address _dao) public payable authorized {
         dao = _dao;
+    }
+
+    function manageSetting(
+        uint40 _tax,
+        uint40 _cycle,
+        uint40 _minimum
+    ) public payable authorized {
+        tax = _tax;
+        cycle = _cycle;
+        minimum = _minimum;
     }
 
     function manageCurrency(
